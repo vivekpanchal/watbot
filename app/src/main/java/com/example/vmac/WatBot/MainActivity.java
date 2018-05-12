@@ -214,11 +214,10 @@ public class MainActivity extends AppCompatActivity {
                 try {
 
                     Conversation service = new Conversation(Conversation.VERSION_DATE_2017_05_26);
-                    service.setUsernameAndPassword("7c25192d-4aee-43f0-9798-0699fbcde95f", "AlTUEJRpeDK7");
+                    service.setUsernameAndPassword("your username ", "your password ");
 
                     InputData input = new InputData.Builder(inputmessage).build();
-                    MessageOptions options = new MessageOptions.Builder("59c6e77d-a352-4591-938a-702e6ea732cc\n" +
-                            "\n").input(input).context(context).build();
+                    MessageOptions options = new MessageOptions.Builder("workspace ID").input(input).context(context).build();
                     MessageResponse response = service.message(options).execute();
 
                     //Passing Context of last conversation
