@@ -4,7 +4,6 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
-import android.media.Image;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
@@ -25,21 +24,18 @@ import com.ibm.watson.developer_cloud.android.library.audio.MicrophoneHelper;
 import com.ibm.watson.developer_cloud.android.library.audio.MicrophoneInputStream;
 import com.ibm.watson.developer_cloud.android.library.audio.StreamPlayer;
 import com.ibm.watson.developer_cloud.android.library.audio.utils.ContentType;
-import com.ibm.watson.developer_cloud.conversation.v1.ConversationService;
-import com.ibm.watson.developer_cloud.conversation.v1.model.MessageRequest;
+import com.ibm.watson.developer_cloud.conversation.v1.Conversation;
+import com.ibm.watson.developer_cloud.conversation.v1.model.InputData;
+import com.ibm.watson.developer_cloud.conversation.v1.model.MessageOptions;
 import com.ibm.watson.developer_cloud.conversation.v1.model.MessageResponse;
-import com.ibm.watson.developer_cloud.http.HttpMediaType;
 import com.ibm.watson.developer_cloud.speech_to_text.v1.SpeechToText;
 import com.ibm.watson.developer_cloud.speech_to_text.v1.model.RecognizeOptions;
 import com.ibm.watson.developer_cloud.speech_to_text.v1.model.SpeechResults;
 import com.ibm.watson.developer_cloud.speech_to_text.v1.websocket.BaseRecognizeCallback;
-import com.ibm.watson.developer_cloud.speech_to_text.v1.websocket.RecognizeCallback;
 import com.ibm.watson.developer_cloud.text_to_speech.v1.TextToSpeech;
 import com.ibm.watson.developer_cloud.text_to_speech.v1.model.Voice;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -51,7 +47,8 @@ public class MainActivity extends AppCompatActivity {
     private EditText inputMessage;
     private ImageButton btnSend;
     private ImageButton btnRecord;
-    private Map<String,Object> context = new HashMap<>();
+    //private Map<String,Object> context = new HashMap<>();
+    com.ibm.watson.developer_cloud.conversation.v1.model.Context context = null;
     StreamPlayer streamPlayer;
     private boolean initialRequest;
     private boolean permissionToRecordAccepted = false;
@@ -71,7 +68,7 @@ public class MainActivity extends AppCompatActivity {
 
         inputMessage = (EditText) findViewById(R.id.message);
         btnSend = (ImageButton) findViewById(R.id.btn_send);
-        btnRecord= (ImageButton) findViewById(R.id.btn_record);
+        btnRecord = (ImageButton) findViewById(R.id.btn_record);
         String customFont = "Montserrat-Regular.ttf";
         Typeface typeface = Typeface.createFromAsset(getAssets(), customFont);
         inputMessage.setTypeface(typeface);
@@ -91,9 +88,9 @@ public class MainActivity extends AppCompatActivity {
         this.initialRequest = true;
         sendMessage();
 
-        //Watson Text-to-Speech Service on Bluemix
+        //Watson Text-to-Speech Service on IBM Cloud
         final TextToSpeech service = new TextToSpeech();
-        service.setUsernameAndPassword("<Watson Text to Speech username>", "<Watson Text to Speech password>");
+        service.setUsernameAndPassword("Text to Speech service username", "Text to Speech service password");
 
         int permission = ContextCompat.checkSelfPermission(this,
                 Manifest.permission.RECORD_AUDIO);
@@ -112,11 +109,11 @@ public class MainActivity extends AppCompatActivity {
                         Message audioMessage;
                         try {
 
-                            audioMessage =(Message) messageArrayList.get(position);
+                            audioMessage = (Message) messageArrayList.get(position);
                             streamPlayer = new StreamPlayer();
-                            if(audioMessage != null && !audioMessage.getMessage().isEmpty())
+                            if (audioMessage != null && !audioMessage.getMessage().isEmpty())
                                 //Change the Voice format and choose from the available choices
-                                streamPlayer.playStream(service.synthesize(audioMessage.getMessage(), Voice.EN_LISA).execute());
+                                streamPlayer.playStream(service.synthesize(audioMessage.getMessage(), Voice.EN_ALLISON).execute());
                             else
                                 streamPlayer.playStream(service.synthesize("No Text Specified", Voice.EN_LISA).execute());
 
@@ -135,29 +132,32 @@ public class MainActivity extends AppCompatActivity {
             }
         }));
 
-        btnSend.setOnClickListener(new View.OnClickListener(){
+        btnSend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(checkInternetConnection()) {
+                if (checkInternetConnection()) {
                     sendMessage();
                 }
             }
         });
 
         btnRecord.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
+            @Override
+            public void onClick(View v) {
                 recordMessage();
             }
         });
-    };
+    }
+
+    ;
 
     // Speech to Text Record Audio permission
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        switch (requestCode){
+        switch (requestCode) {
             case REQUEST_RECORD_AUDIO_PERMISSION:
-                permissionToRecordAccepted  = grantResults[0] == PackageManager.PERMISSION_GRANTED;
+                permissionToRecordAccepted = grantResults[0] == PackageManager.PERMISSION_GRANTED;
                 break;
             case RECORD_REQUEST_CODE: {
 
@@ -192,67 +192,65 @@ public class MainActivity extends AppCompatActivity {
     private void sendMessage() {
 
         final String inputmessage = this.inputMessage.getText().toString().trim();
-        if(!this.initialRequest) {
+        if (!this.initialRequest) {
             Message inputMessage = new Message();
             inputMessage.setMessage(inputmessage);
             inputMessage.setId("1");
             messageArrayList.add(inputMessage);
-        }
-        else
-        {
+        } else {
             Message inputMessage = new Message();
             inputMessage.setMessage(inputmessage);
             inputMessage.setId("100");
             this.initialRequest = false;
-            Toast.makeText(getApplicationContext(),"Tap on the message for Voice",Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(), "Tap on the message for Voice", Toast.LENGTH_LONG).show();
 
         }
 
         this.inputMessage.setText("");
         mAdapter.notifyDataSetChanged();
 
-        Thread thread = new Thread(new Runnable(){
+        Thread thread = new Thread(new Runnable() {
             public void run() {
                 try {
 
-        ConversationService service = new ConversationService(ConversationService.VERSION_DATE_2017_02_03);
-        service.setUsernameAndPassword("<Watson Conversation username>", "<Watson Conversation password>");
-        MessageRequest newMessage = new MessageRequest.Builder().inputText(inputmessage).context(context).build();
-        MessageResponse response = service.message("<Watson Conversation workspace_id>", newMessage).execute();
+                    Conversation service = new Conversation(Conversation.VERSION_DATE_2017_05_26);
+                    service.setUsernameAndPassword("7c25192d-4aee-43f0-9798-0699fbcde95f", "AlTUEJRpeDK7");
 
-               //Passing Context of last conversation
-                if(response.getContext() !=null)
-                    {
-                        context.clear();
+                    InputData input = new InputData.Builder(inputmessage).build();
+                    MessageOptions options = new MessageOptions.Builder("59c6e77d-a352-4591-938a-702e6ea732cc\n" +
+                            "\n").input(input).context(context).build();
+                    MessageResponse response = service.message(options).execute();
+
+                    //Passing Context of last conversation
+                    if (response.getContext() != null) {
+                        //context.clear();
                         context = response.getContext();
 
                     }
-        Message outMessage=new Message();
-          if(response!=null)
-          {
-              if(response.getOutput()!=null && response.getOutput().containsKey("text"))
-              {
-                  ArrayList responseList = (ArrayList) response.getOutput().get("text");
-                  if(null !=responseList && responseList.size()>0){
-                      outMessage.setMessage((String)responseList.get(0));
-                      outMessage.setId("2");
-                  }
-                  messageArrayList.add(outMessage);
-              }
+                    Message outMessage = new Message();
+                    if (response != null) {
+                        if (response.getOutput() != null && response.getOutput().containsKey("text")) {
+                            ArrayList responseList = (ArrayList) response.getOutput().get("text");
+                            if (null != responseList && responseList.size() > 0) {
+                                outMessage.setMessage((String) responseList.get(0));
+                                outMessage.setId("2");
+                            }
+                            messageArrayList.add(outMessage);
+                        }
 
-              runOnUiThread(new Runnable() {
-                  public void run() {
-                      mAdapter.notifyDataSetChanged();
-                     if (mAdapter.getItemCount() > 1) {
-                          recyclerView.getLayoutManager().smoothScrollToPosition(recyclerView, null, mAdapter.getItemCount()-1);
+                        runOnUiThread(new Runnable() {
+                            public void run() {
+                                mAdapter.notifyDataSetChanged();
+                                if (mAdapter.getItemCount() > 1) {
+                                    recyclerView.getLayoutManager().smoothScrollToPosition(recyclerView, null, mAdapter.getItemCount() - 1);
 
-                      }
+                                }
 
-                  }
-              });
+                            }
+                        });
 
 
-          }
+                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -262,16 +260,18 @@ public class MainActivity extends AppCompatActivity {
         thread.start();
 
     }
+
     //Record a message via Watson Speech to Text
     private void recordMessage() {
         //mic.setEnabled(false);
         speechService = new SpeechToText();
-        speechService.setUsernameAndPassword("<Watson Speech to Text username>", "<Watson Speech to Text password>");
+        speechService.setUsernameAndPassword("Speech to Text username", "Speech to Text password");
 
-        if(listening != true) {
+        if (listening != true) {
             capture = microphoneHelper.getInputStream(true);
             new Thread(new Runnable() {
-                @Override public void run() {
+                @Override
+                public void run() {
                     try {
                         speechService.recognizeUsingWebSocket(capture, getRecognizeOptions(), new MicrophoneRecognizeDelegate());
                     } catch (Exception e) {
@@ -280,13 +280,13 @@ public class MainActivity extends AppCompatActivity {
                 }
             }).start();
             listening = true;
-            Toast.makeText(MainActivity.this,"Listening....Click to Stop", Toast.LENGTH_LONG).show();
+            Toast.makeText(MainActivity.this, "Listening....Click to Stop", Toast.LENGTH_LONG).show();
 
         } else {
             try {
                 microphoneHelper.closeInputStream();
                 listening = false;
-                Toast.makeText(MainActivity.this,"Stopped Listening....Click to Start", Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, "Stopped Listening....Click to Start", Toast.LENGTH_LONG).show();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -296,22 +296,22 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Check Internet Connection
+     *
      * @return
      */
     private boolean checkInternetConnection() {
         // get Connectivity Manager object to check connection
         ConnectivityManager cm =
-                (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 
         NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
         boolean isConnected = activeNetwork != null &&
                 activeNetwork.isConnectedOrConnecting();
 
         // Check for network connections
-        if (isConnected){
+        if (isConnected) {
             return true;
-        }
-       else {
+        } else {
             Toast.makeText(this, " No Internet Connection available ", Toast.LENGTH_LONG).show();
             return false;
         }
@@ -321,7 +321,6 @@ public class MainActivity extends AppCompatActivity {
     //Private Methods - Speech to Text
     private RecognizeOptions getRecognizeOptions() {
         return new RecognizeOptions.Builder()
-                .continuous(true)
                 .contentType(ContentType.OPUS.toString())
                 //.model("en-UK_NarrowbandModel")
                 .interimResults(true)
@@ -331,7 +330,7 @@ public class MainActivity extends AppCompatActivity {
                 .build();
     }
 
-    private class MicrophoneRecognizeDelegate implements RecognizeCallback {
+    private class MicrophoneRecognizeDelegate extends BaseRecognizeCallback {
 
         @Override
         public void onTranscription(SpeechResults speechResults) {
@@ -345,22 +344,25 @@ public class MainActivity extends AppCompatActivity {
 
 
             }*/
-            if(speechResults.getResults() != null && !speechResults.getResults().isEmpty()) {
+            if (speechResults.getResults() != null && !speechResults.getResults().isEmpty()) {
                 String text = speechResults.getResults().get(0).getAlternatives().get(0).getTranscript();
                 showMicText(text);
             }
         }
 
-        @Override public void onConnected() {
+        @Override
+        public void onConnected() {
 
         }
 
-        @Override public void onError(Exception e) {
+        @Override
+        public void onError(Exception e) {
             showError(e);
             enableMicButton();
         }
 
-        @Override public void onDisconnected() {
+        @Override
+        public void onDisconnected() {
             enableMicButton();
         }
 
@@ -382,7 +384,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void showMicText(final String text) {
         runOnUiThread(new Runnable() {
-            @Override public void run() {
+            @Override
+            public void run() {
                 inputMessage.setText(text);
             }
         });
@@ -390,7 +393,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void enableMicButton() {
         runOnUiThread(new Runnable() {
-            @Override public void run() {
+            @Override
+            public void run() {
                 btnRecord.setEnabled(true);
             }
         });
@@ -398,7 +402,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void showError(final Exception e) {
         runOnUiThread(new Runnable() {
-            @Override public void run() {
+            @Override
+            public void run() {
                 Toast.makeText(MainActivity.this, e.getMessage(), Toast.LENGTH_SHORT).show();
                 e.printStackTrace();
             }
